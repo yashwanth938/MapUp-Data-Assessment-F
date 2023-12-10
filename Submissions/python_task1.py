@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-def generate_car_matrix(df)->pd.DataFrame:
+def generate_car_matrix(df) -> pd.DataFrame:
     """
     Creates a DataFrame  for id combinations.
 
@@ -12,22 +12,18 @@ def generate_car_matrix(df)->pd.DataFrame:
         pandas.DataFrame: Matrix generated with 'car' values, 
                           where 'id_1' and 'id_2' are used as indices and columns respectively.
     """
-    
 
     ids = sorted(set(df['id_1'].unique()) | set(df['id_2'].unique()))
 
-    # Create an empty matrix
     matrix = pd.DataFrame(0, index=ids, columns=ids)
 
-    # Populate the matrix with 'car' values
     for _, row in df.iterrows():
         matrix.at[row['id_1'], row['id_2']] = row['car']
 
     return matrix
 
 
-
-def get_type_count(df)->dict:
+def get_type_count(df) -> dict:
     """
     Categorizes 'car' values into types and returns a dictionary of counts.
 
@@ -39,10 +35,15 @@ def get_type_count(df)->dict:
     """
     # Write your logic here
 
-    return dict()
+    df['car_type'] = pd.cut(df['car'], bins=[-float('inf'), 15, 25, float('inf')],
+                            labels=['low', 'medium', 'high'], right=False)
+
+    type_counts = df['car_type'].value_counts().to_dict()
+
+    return type_counts
 
 
-def get_bus_indexes(df)->list:
+def get_bus_indexes(df) -> list:
     """
     Returns the indexes where the 'bus' values are greater than twice the mean.
 
@@ -53,11 +54,16 @@ def get_bus_indexes(df)->list:
         list: List of indexes where 'bus' values exceed twice the mean.
     """
     # Write your logic here
+    mean_bus = df['bus'].mean()
 
-    return list()
+    bus_indexes = df[df['bus'] > 2 * mean_bus].index.tolist()
+
+    bus_indexes.sort()
+
+    return bus_indexes
 
 
-def filter_routes(df)->list:
+def filter_routes(df) -> list:
     """
     Filters and returns routes with average 'truck' values greater than 7.
 
@@ -72,7 +78,7 @@ def filter_routes(df)->list:
     return list()
 
 
-def multiply_matrix(matrix)->pd.DataFrame:
+def multiply_matrix(matrix) -> pd.DataFrame:
     """
     Multiplies matrix values with custom conditions.
 
@@ -87,7 +93,7 @@ def multiply_matrix(matrix)->pd.DataFrame:
     return matrix
 
 
-def time_check(df)->pd.Series:
+def time_check(df) -> pd.Series:
     """
     Use shared dataset-2 to verify the completeness of the data by checking whether the timestamps for each unique (`id`, `id_2`) pair cover a full 24-hour and 7 days period
 
