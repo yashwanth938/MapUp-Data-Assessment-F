@@ -1,104 +1,117 @@
 import pandas as pd
 
 
+
+
 def calculate_distance_matrix(df) -> pd.DataFrame():
-    """
-    Calculate a distance matrix based on the dataframe, df.
+ 
+    data = pd.read_csv(input_csv)
 
-    Args:
-        df (pandas.DataFrame)
+ 
+    unique_ids = sorted(set(data['id_start'].unique())
+                        | set(data['id_end'].unique()))
+    distance_matrix = pd.DataFrame(index=unique_ids, columns=unique_ids)
 
-    Returns:
-        pandas.DataFrame: Distance matrix
-    """
-    # Write your logic here
+ 
+    distance_matrix = distance_matrix.fillna(0)
 
-    distance_matrix = df.pivot(
-        index='id_start', columns='id_end', values='distance').fillna(0)
+ 
+    for _, row in data.iterrows():
+        id_start, id_end, distance = row['id_start'], row['id_end'], row['distance']
+        distance_matrix.at[id_start, id_end] = distance
+        distance_matrix.at[id_end, id_start] = distance  # Symmetric
 
-    distance_matrix = distance_matrix + distance_matrix.T
-
-    distance_matrix.values[[range(len(distance_matrix))]*2] = 0
+ 
+    for k in unique_ids:
+        for i in unique_ids:
+            for j in unique_ids:
+                if distance_matrix.at[i, j] == 0 and i != j:
+                    if distance_matrix.at[i, k] != 0 and distance_matrix.at[k, j] != 0:
+                        distance_matrix.at[i, j] = distance_matrix.at[i,
+                                                                      k] + distance_matrix.at[k, j]
 
     return distance_matrix
 
 
+resulting_matrix = calculate_distance_matrix('dataset-3.csv')
+print(resulting_matrix)
+
+
+
 def unroll_distance_matrix(df) -> pd.DataFrame():
-    """
-    Unroll a distance matrix to a DataFrame in the style of the initial dataset.
+    unrolled_data = []
 
-    Args:
-        df (pandas.DataFrame)
+    for id_start in distance_matrix.index:
+        for id_end in distance_matrix.columns:
+            if id_start != id_end:
+                distance = distance_matrix.at[id_start, id_end]
+                unrolled_data.append(
+                    {'id_start': id_start, 'id_end': id_end, 'distance': distance})
 
-    Returns:
-        pandas.DataFrame: Unrolled DataFrame containing columns 'id_start', 'id_end', and 'distance'.
-    """
-    # Write your logic here
-
-    stacked_distances = df.stack()
-
-    unrolled_df = stacked_distances.reset_index()
-
-    unrolled_df.columns = ['id_start', 'id_end', 'distance']
-
-    unrolled_df = unrolled_df[unrolled_df['id_start'] != unrolled_df['id_end']]
-
-    return unrolled_df
+    return pd.DataFrame(unrolled_data)
 
 
-# Collecting the reference number from the previus question
-all_reference_values = df['id_start'].unique()
 
-reference_value = all_reference_values[0]
+unrolled_dataframe = unroll_distance_matrix(resulting_matrix)
+print(unrolled_dataframe)
 
 
-def find_ids_within_ten_percentage_threshold(df, reference_value) -> pd.DataFrame():
-    """
-    Find all IDs whose average distance lies within 10% of the average distance of the reference ID.
 
-    Args:
-        df (pandas.DataFrame)
-        reference_id (int)
+def find_ids_within_ten_percentage_threshold(df, reference_id) -> pd.DataFrame():
 
-    Returns:
-        pandas.DataFrame: DataFrame with IDs whose average distance is within the specified percentage threshold
-                          of the reference ID's average distance.
-    """
-    # Write your logic here
-    reference_df = df[df['id_start'] == reference_value]
+    reference_rows = df[df['id_start'] == reference_id]
 
-    average_distance = reference_df['distance'].mean()
 
-    lower_bound = 0.9 * average_distance
-    upper_bound = 1.1 * average_distance
+    reference_avg_distance = reference_rows['distance'].mean()
 
-    result_df = df[(df['distance'] >= lower_bound) &
-                   (df['distance'] <= upper_bound)]
 
-    result_ids = sorted(result_df['id_start'].unique())
+    percentage_threshold = 0.1  # 10%
 
-    return result_ids
+
+    result_df = df.groupby('id_start')['distance'].mean().reset_index()
+    result_df = result_df[
+        (result_df['distance'] >= (1 - percentage_threshold) * reference_avg_distance) &
+        (result_df['distance'] <= (1 + percentage_threshold)
+         * reference_avg_distance)
+    ]
+
+    return result_df
+
+
+
+reference_id = 1001400
+result_within_threshold = find_ids_within_ten_percentage_threshold(
+    unrolled_dataframe, reference_id)
+print(result_within_threshold)
+
 
 
 def calculate_toll_rate(df) -> pd.DataFrame():
-    """
-    Calculate toll rates for each vehicle type based on the unrolled DataFrame.
+    
+    toll_dataframe = unrolled_dataframe.copy()
 
-    Args:
-        df (pandas.DataFrame)
+    
+    rate_coefficients = {
+        'moto': 0.8,
+        'car': 1.2,
+        'rv': 1.5,
+        'bus': 2.2,
+        'truck': 3.6
+    }
 
-    Returns:
-        pandas.DataFrame
-    """
-    # Wrie your logic here
-    rate_coefficients = {'moto': 0.8, 'car': 1.2,
-                         'rv': 1.5, 'bus': 2.2, 'truck': 3.6}
+    
+    for vehicle_type, rate_coefficient in rate_coefficients.items():
+        toll_dataframe[vehicle_type] = toll_dataframe['distance'] * \
+            rate_coefficient
 
-    # Calculate toll rates for each vehicle type
-    for vehicle_type, rate in rate_coefficients.items():
-        df[vehicle_type] = df['distance'] * rate
+    return toll_dataframe
 
-    return df
+
+
+toll_dataframe = calculate_toll_rate(unrolled_dataframe)
+print(toll_dataframe)
+
+
 
 
 def calculate_time_based_toll_rates(df) -> pd.DataFrame():
