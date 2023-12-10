@@ -1,6 +1,10 @@
 import pandas as pd
 
 
+df = pd.read_csv("datasets\dataset-1.csv")
+df2 = pd.read_csv("datasets\dataset-2.csv").dropna()
+
+
 def generate_car_matrix(df) -> pd.DataFrame:
     """
     Creates a DataFrame  for id combinations.
@@ -75,7 +79,13 @@ def filter_routes(df) -> list:
     """
     # Write your logic here
 
-    return list()
+    route_means = df.groupby('route')['truck'].mean()
+
+    selected_routes = route_means[route_means > 7].index.tolist()
+
+    selected_routes.sort()
+
+    return selected_routes
 
 
 def multiply_matrix(matrix) -> pd.DataFrame:
@@ -90,19 +100,29 @@ def multiply_matrix(matrix) -> pd.DataFrame:
     """
     # Write your logic here
 
-    return matrix
+    modified_matrix = matrix.applymap(
+        lambda x: x * 0.75 if x > 20 else x * 1.25)
+
+    modified_matrix = modified_matrix.round(1)
+    return modified_matrix
 
 
-def time_check(df) -> pd.Series:
-    """
-    Use shared dataset-2 to verify the completeness of the data by checking whether the timestamps for each unique (`id`, `id_2`) pair cover a full 24-hour and 7 days period
+def time_check(df):
+    # Convert timestamp columns to datetime format
+    df['start_time'] = pd.to_datetime(df['startDay'] + ' ' + df['startTime'])
+    df['end_time'] = pd.to_datetime(df['endDay'] + ' ' + df['endTime'])
 
-    Args:
-        df (pandas.DataFrame)
+    # Create a new column to represent the expected end time (11:59:59 PM) of each day
+    df['expected_end_time'] = df['start_time'].dt.date + \
+        pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
 
-    Returns:
-        pd.Series: return a boolean series
-    """
-    # Write your logic here
+    # Group the dataframe by (id, id_2) pairs
+    grouped = df.groupby(['id', 'id_2'])
 
-    return pd.Series()
+    # Check if each (id, id_2) pair has incorrect timestamps
+    completeness_check = grouped.apply(lambda x: all(x['start_time'].min().time() == pd.Timestamp('00:00:00').time() and
+                                                     x['end_time'].max().time() == pd.Timestamp('23:59:59').time() and
+                                                     len(x['start_time']) == 7 and
+                                                     all(x['end_time'].dt.date == x['expected_end_time'])).values)
+
+    return completeness_check
